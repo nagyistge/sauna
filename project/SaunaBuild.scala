@@ -21,6 +21,7 @@ object SaunaBuild extends Build {
 
   lazy val project = Project("sauna", file("."))
     .settings(buildSettings: _*)
+    .settings(sbtavrohugger.SbtAvrohugger.avroSettings)
     .settings(
       libraryDependencies ++= Seq(
         "com.github.tototoshi" %% "scala-csv" % "1.2.2",
