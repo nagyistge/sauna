@@ -1,3 +1,15 @@
+/*
+ * Copyright (c) 2016 Snowplow Analytics Ltd. All rights reserved.
+ *
+ * This program is licensed to you under the Apache License Version 2.0,
+ * and you may not use this file except in compliance with the Apache License Version 2.0.
+ * You may obtain a copy of the Apache License Version 2.0 at http://www.apache.org/licenses/LICENSE-2.0.
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the Apache License Version 2.0 is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Apache License Version 2.0 for the specific language governing permissions and limitations there under.
+ */
 package com.snowplowanalytics.sauna
 package actors
 
@@ -20,7 +32,7 @@ abstract class CommonActor(respondersConfig: RespondersConfig,
                            observersConfig: ObserversConfig,
                            loggersConfig: LoggersConfig) extends Actor {
   // logger
-  implicit val logger = (loggersConfig.hipchatEnabled, loggersConfig.dynamodbEnabled) match {
+  val logger = (loggersConfig.hipchatEnabled, loggersConfig.dynamodbEnabled) match {
     case (true, true) =>
       context.actorOf(Props(new HipchatLogger(loggersConfig) {
         val dynamodbLogger = context.actorOf(Props(new DynamodbLogger(observersConfig, loggersConfig) with StdoutLogger))
@@ -41,19 +53,19 @@ abstract class CommonActor(respondersConfig: RespondersConfig,
   // note that even if api was disabled in config, no error will happen, because
   // default sentinel value "" is applied as token, and first real use happens inside responders,
   // and it wont happen if appropriate responder was not activated
-  val optimizely = new Optimizely(respondersConfig.optimizelyToken)
-  val sendgrid = new Sendgrid(respondersConfig.sendgridToken)
+  val optimizely = new Optimizely(respondersConfig.optimizelyToken, logger)
+  val sendgrid = new Sendgrid(respondersConfig.sendgridToken, logger)
 
   // responders
   var responderActors = List.empty[ActorRef]
   if (respondersConfig.targetingListEnabled) {
-    responderActors +:= context.actorOf(TargetingList(optimizely), "TargetingList")
+    responderActors +:= context.actorOf(TargetingList(optimizely, logger), "TargetingList")
   }
   if (respondersConfig.dynamicClientProfilesEnabled) {
-    responderActors +:= context.actorOf(DCPDatasource(optimizely, observersConfig.saunaRoot, respondersConfig.optimizelyImportRegion), "DCPDatasource")
+    responderActors +:= context.actorOf(DCPDatasource(optimizely, observersConfig.saunaRoot, respondersConfig.optimizelyImportRegion, logger), "DCPDatasource")
   }
   if (respondersConfig.recipientsEnabled) {
-    responderActors +:= context.actorOf(Recipients(sendgrid), "Recipients")
+    responderActors +:= context.actorOf(Recipients(logger, sendgrid), "Recipients")
   }
 
   def receive: Receive = {

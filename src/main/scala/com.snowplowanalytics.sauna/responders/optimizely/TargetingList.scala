@@ -47,8 +47,7 @@ import utils._
  * @param optimizely Instance of Optimizely.
  * @param logger A logger actor.
  */
-class TargetingList(optimizely: Optimizely)
-                   (implicit logger: ActorRef) extends Responder {
+class TargetingList(optimizely: Optimizely, logger: ActorRef) extends Responder {
   val pathPattern =
     """.*com\.optimizely/
       |targeting_lists/
@@ -116,8 +115,8 @@ object TargetingList {
    * @param logger Actor with underlying Logger.
    * @return Props for new actor.
    */
-  def apply(optimizely: Optimizely)(implicit logger: ActorRef): Props =
-    Props(new TargetingList(optimizely))
+  def apply(optimizely: Optimizely, logger: ActorRef): Props =
+    Props(new TargetingList(optimizely, logger))
 
   /**
    * Tries to extract an Data from given string.

@@ -48,8 +48,7 @@ import utils._
  * @param optimizelyImportRegion What region uses Optimizely S3 bucket.
  * @param logger A logger actor.
  */
-class DCPDatasource(optimizely: Optimizely, saunaRoot: String, optimizelyImportRegion: String)
-                   (implicit logger: ActorRef) extends Responder {
+class DCPDatasource(optimizely: Optimizely, saunaRoot: String, optimizelyImportRegion: String, logger: ActorRef) extends Responder {
   import DCPDatasource._
 
   val pathPattern =
@@ -190,7 +189,6 @@ object DCPDatasource {
    * @param logger Actor with underlying Logger.
    * @return Props for new actor.
    */
-  def apply(optimizely: Optimizely, saunaRoot: String, optimizelyImportRegion: String)
-           (implicit logger: ActorRef): Props =
-    Props(new DCPDatasource(optimizely, saunaRoot, optimizelyImportRegion))
+  def apply(optimizely: Optimizely, saunaRoot: String, optimizelyImportRegion: String, logger: ActorRef): Props =
+    Props(new DCPDatasource(optimizely, saunaRoot, optimizelyImportRegion, logger))
 }

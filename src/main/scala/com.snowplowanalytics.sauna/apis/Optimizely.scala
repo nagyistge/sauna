@@ -38,8 +38,7 @@ import utils._
  * @param token Optimizely token.
  * @param logger A logger actor.
  */
-class Optimizely(token: String)
-                (implicit logger: ActorRef) {
+class Optimizely(token: String, logger: ActorRef) {
   import Optimizely._
 
   /**

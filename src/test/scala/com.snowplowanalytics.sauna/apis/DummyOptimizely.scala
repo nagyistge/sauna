@@ -24,7 +24,7 @@ import play.api.libs.ws.WSResponse
 // sauna
 import TargetingList.Data
 
-class DummyOptimizely extends Optimizely("")(null) { // DummyOptimizely wont need these value
+class DummyOptimizely extends Optimizely("", null) { // DummyOptimizely wont need these value
   override def postTargetingLists(tlData: Seq[Data]): Future[WSResponse] =
     Future.failed(new Exception("Using DummyOptimizely"))
 

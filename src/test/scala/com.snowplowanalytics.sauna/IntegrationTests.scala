@@ -45,9 +45,22 @@ import responders.Responder
 import responders.Responder._
 import responders.optimizely._
 
+object IntegrationTests {
+  class DummyActor extends Actor {
+    def receive = {
+      case _ => ()
+    }
+  }
+
+  object DummyActor {
+    def props = Props[DummyActor]
+  }
+}
+
 class IntegrationTests extends FunSuite with BeforeAndAfter {
   implicit var system: ActorSystem = _
-  implicit var logger: TestActorRef[Actor] = _
+  var logger: TestActorRef[Actor] = _
+  var dummyActor: TestActorRef[Actor] = _
   var awsAccessKeyId: String = _
   var secretAccessKey: String = _
   var awsBucketName: String = _
@@ -59,6 +72,7 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
   before {
     system = ActorSystem("IntegrationTest")
     logger = TestActorRef(new MutedLogger)
+    dummyActor = TestActorRef(IntegrationTests.DummyActor.props)
 
     // credentials
     awsAccessKeyId = System.getenv("AWS_ACCESS_KEY_ID")
@@ -98,7 +112,7 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
         }
       })
     )
-    val lo = new LocalObserver(saunaRoot, responders, logger)
+    val lo = new LocalObserver(saunaRoot, responders, logger)(dummyActor)    // TODO: can it be dummy?
 
     // start observer
     new Thread(lo).start()
@@ -172,9 +186,9 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
     })
 
     // define Optimizely, responder and observer
-    val optimizely = new Optimizely(optimizelyToken)
-    val responderActors = Seq(system.actorOf(TargetingList(optimizely)))
-    val observers = Seq(new LocalObserver(saunaRoot, responderActors, logger))
+    val optimizely = new Optimizely(optimizelyToken, logger)
+    val responderActors = Seq(system.actorOf(TargetingList(optimizely, logger)))
+    val observers = Seq(new LocalObserver(saunaRoot, responderActors, logger)(dummyActor))   // TODO: can it be dummy?
     observers.foreach(new Thread(_).start())
 
     // wait
@@ -248,9 +262,9 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
     })
 
     // define Optimizely, responder and observer
-    val optimizely = new Optimizely(optimizelyToken)
-    val responderActors = Seq(system.actorOf(TargetingList(optimizely)))
-    val observers = Seq(new S3Observer(s3, sqs, queue, responderActors, logger))
+    val optimizely = new Optimizely(optimizelyToken, logger)
+    val responderActors = Seq(system.actorOf(TargetingList(optimizely, logger)))
+    val observers = Seq(new S3Observer(s3, sqs, queue, responderActors, logger)(dummyActor))
     observers.foreach(new Thread(_).start())
 
     // wait
@@ -324,9 +338,9 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
     })
 
     // define Optimizely, responder and observer
-    val optimizely = new Optimizely(optimizelyToken)
-    val responderActors = Seq(system.actorOf(DCPDatasource(optimizely, saunaRoot, optimizelyImportRegion)))
-    val observers = Seq(new LocalObserver(saunaRoot, responderActors, logger))
+    val optimizely = new Optimizely(optimizelyToken, logger)
+    val responderActors = Seq(system.actorOf(DCPDatasource(optimizely, saunaRoot, optimizelyImportRegion, logger)))
+    val observers = Seq(new LocalObserver(saunaRoot, responderActors, logger)(dummyActor))   // TODO: can it be dummy?
     observers.foreach(new Thread(_).start())
 
     // wait

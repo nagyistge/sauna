@@ -45,8 +45,7 @@ import utils._
  * @param sendgrid Instance of Sendgrid.
  * @param logger A logger actor.
  */
-class Recipients(sendgrid: Sendgrid)
-                (implicit logger: ActorRef) extends Responder {
+class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
   import Recipients._
 
   val pathPattern =
@@ -207,8 +206,8 @@ object Recipients {
    * @param logger Actor with underlying Logger.
    * @return Props for new actor.
    */
-  def apply(sendgrid: Sendgrid)(implicit logger: ActorRef): Props =
-    Props(new Recipients(sendgrid))
+  def apply(logger: ActorRef, sendgrid: Sendgrid): Props =
+    Props(new Recipients(sendgrid, logger))
 
   /**
    * Creates a Sendgrid-friendly json from given keys and valuess.

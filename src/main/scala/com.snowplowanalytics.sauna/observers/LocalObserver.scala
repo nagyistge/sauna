@@ -38,8 +38,7 @@ import responders.Responder._
  * @param logger A logger actor.
  * @param self Actor in whose context observer runs.
  */
-class LocalObserver(observedDir: String, responders: Seq[ActorRef], logger: ActorRef)
-                   (implicit self: ActorRef) extends Observer {
+class LocalObserver(observedDir: String, responders: Seq[ActorRef], logger: ActorRef)(self: ActorRef) extends Observer {
 
   private def processEvent(event: WatchEvent.Kind[Path], path: Path): Unit = {
     if (event == StandardWatchEventKinds.ENTRY_CREATE) {

@@ -140,13 +140,13 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
     )
     // using custom logger to check if all messages really appeared
     var received = Seq.empty[String]
-    implicit val logger = system.actorOf(Props(new Logger {
+    val logger = system.actorOf(Props(new Logger {
       override def log(message: Notification): Unit = received :+= message.text
 
       override def log(message: Manifestation): Unit = {}
     }))
-    val sendgrid = new Sendgrid(sendgridToken)
-    val recipients = system.actorOf(Recipients(sendgrid))
+    val sendgrid = new Sendgrid(sendgridToken, logger)
+    val recipients = system.actorOf(Recipients(logger, sendgrid))
 
     // send a message, get a Future notification that it was processed
     val f = recipients ? FileAppeared(filePath, new ByteArrayInputStream(data.getBytes("UTF-8")))
@@ -163,8 +163,8 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
   test("respect Sendgrid limitations: LINE_LIMIT and WAIT_TIME") {
     val data = (for (i <- 1 to 3000) yield s""""bob$i@foo.com"\t"1980-06-21"\t"Al"\t"13"\t"2013-12-15 14:05:06.789"""")
                   .mkString("\n")
-    implicit val logger = system.actorOf(Props(new MutedLogger))
-    val mockedSendgrid = new Sendgrid("")(logger) {
+    val logger = system.actorOf(Props(new MutedLogger))
+    val mockedSendgrid = new Sendgrid("", logger) {
       override def postRecipients(json: String): Future[WSResponse] = {
         Json.parse(json)
             .asOpt[JsArray]
@@ -173,7 +173,7 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
         Future.failed(new Exception)
       }
     }
-    val recipients = system.actorOf(Recipients(mockedSendgrid))
+    val recipients = system.actorOf(Recipients(logger, mockedSendgrid))
 
     // preparing is done, start timing
     val time = System.currentTimeMillis()

@@ -31,8 +31,7 @@ import utils._
  * @param token Sendgrid token.
  * @param logger A logger actor.
  */
-class Sendgrid(token: String)
-              (implicit logger: ActorRef) {
+class Sendgrid(token: String, logger: ActorRef) {
   import Sendgrid._
 
   /**

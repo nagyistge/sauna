@@ -18,7 +18,7 @@ import java.io.InputStream
 import java.net.URLDecoder
 
 // akka
-import akka.actor.{Actor, ActorRef}
+import akka.actor.ActorRef
 import akka.pattern.ask
 
 // play
