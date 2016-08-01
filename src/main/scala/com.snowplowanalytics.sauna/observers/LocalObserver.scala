@@ -21,6 +21,7 @@ import java.nio.file.attribute._
 // scala
 import scala.collection.JavaConversions._
 import scala.collection.mutable
+import scala.concurrent.Future
 
 // akka
 import akka.actor.ActorRef
@@ -46,12 +47,8 @@ class LocalObserver(observedDir: String, responders: Seq[ActorRef], logger: Acto
 
       logger ! Notification(s"Detected new local file [$path].")
 
-      responders.map { case responder =>
-        responder ? FileAppeared(path.toString, is) // trigger responder
-        
-      }.foreach { case _ => // cleanup
-        Files.deleteIfExists(path)
-      }
+      val futures = responders.map(responder => responder ? FileAppeared(path.toString, is) )
+      Future.sequence(futures).foreach(_ => Files.delete(path)) // cleanup
     }
   }
 
