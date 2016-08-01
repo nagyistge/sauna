@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Snowplow Analytics Ltd. All rights reserved.
+ * Copyright (c) 2016 Snowplow Analytics Ltd. All rights reserved.
  *
  * This program is licensed to you under the Apache License Version 2.0,
  * and you may not use this file except in compliance with the Apache License Version 2.0.
@@ -15,35 +15,14 @@ import Keys._
 import sbtassembly.AssemblyKeys._
 import sbtassembly.{PathList, MergeStrategy}
 
-object SaunaBuild extends Build {
-  val playVersion = "2.4.4"
-  val akkaVersion = "2.4.1"
-
-  lazy val project = Project("sauna", file("."))
-    .settings(buildSettings: _*)
-    .settings(sbtavrohugger.SbtAvrohugger.avroSettings)
-    .settings(
-      libraryDependencies ++= Seq(
-        "com.github.tototoshi" %% "scala-csv" % "1.2.2",
-        "com.github.seratch" %% "awscala" % "0.5.+",
-        "com.typesafe" % "config" % "1.3.0",
-        "com.typesafe.play" %% "play-json" % playVersion,
-        "com.typesafe.play" %% "play-ws" % playVersion,
-        "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-        "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-        "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
-        "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion,
-
-        "org.scalatest" %% "scalatest" % "2.2.4" % "test"
-      )
-    )
+object SaunaBuild {
 
   lazy val buildSettings = Seq[Setting[_]](
     organization  := "com.snowplowanalytics",
     name          := "sauna",
-    version       := "0.1.0",
+    version       := "0.1.0-M1",
     description   := "A decisioning and response framework",
-    scalaVersion  := "2.11.7",
+    scalaVersion  := "2.11.8",
     scalacOptions := Seq(
                        "-deprecation",
                        "-encoding", "UTF-8",
