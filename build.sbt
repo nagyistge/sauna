@@ -19,6 +19,7 @@ lazy val root = (project in file("."))
       Dependencies.Libraries.typesafeConfig,
       Dependencies.Libraries.totoshi,
       Dependencies.Libraries.seratch,
+      Dependencies.Libraries.nscalaTime,
       Dependencies.Libraries.playJson,
       Dependencies.Libraries.playWs,
       Dependencies.Libraries.akkaActor,

@@ -16,17 +16,20 @@ package sendgrid
 
 // java
 import java.io.{InputStream, StringReader}
-import java.text.SimpleDateFormat
+
+// nscala-time
+import com.github.nscala_time.time.StaticDateTimeFormat
 
 // scala
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.Source.fromInputStream
+import scala.util.control.NonFatal
 
 // akka
 import akka.actor.{ActorRef, Props}
 
 // play
-import play.api.libs.json._
+import play.api.libs.json.{ Json, JsObject }
 
 // scala-csv
 import com.github.tototoshi.csv._
@@ -114,10 +117,9 @@ class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
     }
 
     val json = Recipients.makeValidJson(keys, probablyValid)
-    sendgrid.postRecipients(json)
-            .foreach { case response =>
-              handleErrors(probablyValid.length, response.body)
-            }
+    sendgrid
+      .postRecipients(json)
+      .foreach { case response => handleErrors(probablyValid.length, response.body) }
 
     Thread.sleep(WAIT_TIME) // note that for actor all messages come from single queue
                             // so new `fileAppeared` will be processed after current one
@@ -185,7 +187,7 @@ class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
                             s"It's rare Sendgrid's bug double-check you input. ")
     }
 
-  } catch { case e: Exception =>
+  } catch { case NonFatal(e) =>
     logger ! Notification(s"Got exception ${e.getMessage} while parsing Sendgrid's response.")
   }
 }
@@ -194,9 +196,9 @@ object Recipients {
   val LINE_LIMIT = 1000 // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-a-Single-Recipient-to-a-List-POST
   val WAIT_TIME = 667L // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-Recipients-POST
 
-  val dateFormatFull = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
+  val dateFormatFull = StaticDateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZoneUTC()
   val dateRegexpFull = "^(\\d{1,4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d{1,3})$".r
-  val dateFormatShort = new SimpleDateFormat("yyyy-MM-dd")
+  val dateFormatShort = StaticDateTimeFormat.forPattern("yyyy-MM-dd").withZoneUTC()
   val dateRegexpShort = "^(\\d{1,4}-\\d{1,2}-\\d{1,2})$".r
 
   /**
@@ -210,10 +212,11 @@ object Recipients {
     Props(new Recipients(sendgrid, logger))
 
   /**
-   * Creates a Sendgrid-friendly json from given keys and valuess.
+   * Creates a Sendgrid-friendly JSON from given keys and values
+   * Also transforms everything look-alike datetime (ISO-8601) into Unix epoch
    *
    * For example, for `keys` = Seq("name1", "name2"),
-   *                  `valuess` = Seq(Seq("value11", "value12"), Seq("value21", "value22")),
+   *                  `values` = Seq(Seq("value11", "value12"), Seq("value21", "value22")),
    * result would be:
    *
    * [
@@ -227,23 +230,24 @@ object Recipients {
    *   }
    * ]
    *
-   * @param keys Seq of attribute keys, repeated for each recipient from `valuess`.
-   * @param valuess Seq of recipients, where recipient is a seq of attribute values.
-   *                Each `values` in `valuess` must already have one length with `keys`.
-   * @return Sendgrid-friendly json.
+   * @param keys Seq of attribute keys, repeated for each recipient from `valuess`
+   * @param values Seq of recipients, where recipient is a seq of attribute values.
+   *                Each `values` in `valuess` must already have one length with `keys`
+   * @return Sendgrid-friendly JSON
    * @see https://github.com/snowplow/sauna/wiki/SendGrid-responder-user-guide#214-response-algorithm
    */
-  def makeValidJson(keys: Seq[String], valuess: Seq[Seq[String]]): String = {
-    val recipients = for (values <- valuess;
-                          _ = assert(values.length == keys.length);
-                          correctedValues = values.map(correctTimestamps))
-                       yield {
-                         val recipientsData = keys.zip(correctedValues)
-                         Json.toJson(recipientsData.toMap)
-                             .toString()
-                             .replaceAll("\"\"", "null") // null should be without quotations
-                             .replaceAll(""""(\d+)"""", "$1") // and positive integers too
-                       }
+  def makeValidJson(keys: Seq[String], values: Seq[Seq[String]]): String = {
+    val recipients = for {
+      vals            <- values
+      _                = assert(vals.length == keys.length)   // TODO: avoid throwing runtime exception
+      correctedValues  = vals.map(correctTimestamps)}
+      yield {
+        val recipientsData = keys.zip(correctedValues)
+        Json.toJson(recipientsData.toMap)
+          .toString
+          .replaceAll("\"\"", "null")      // null should be without quotations
+          .replaceAll(""""(\d+)"""", "$1") // and positive integers too
+      }
 
     s"[${recipients.mkString(",")}]"
   }
@@ -259,32 +263,26 @@ object Recipients {
 
     try {
       reader.readNext() // get next line, it should be only one
-
     } catch {
-      case _: Exception => None
-
+      case NonFatal(_) => None
     } finally {
       reader.close()
     }
   }
 
   /**
-   * Corrects a single string according to following rules:
-   *   1) change timestamps words to epochs
+   * Transform string, possible containing ISO-8601 datetime to string with
+   * Unix-epoch (in seconds) or do nothing if string doesn't conform format
    *
-   * @see https://github.com/snowplow/sauna/wiki/SendGrid-responder-user-guide#214-response-algorithm
-   * @param s A string to be corrected.
+   * @param s string to be corrected.
    * @return Corrected word.
+   * @see https://github.com/snowplow/sauna/wiki/SendGrid-responder-user-guide#214-response-algorithm
    */
   def correctTimestamps(s: String): String = s match {
-    case dateRegexpFull(timestamp) => dateFormatFull.parse(timestamp)
-                                                    .getTime
-                                                    ./(1000) // seems like Sendgrid does not accept milliseconds
-                                                    .toString
-    case dateRegexpShort(timestamp) => dateFormatShort.parse(timestamp)
-                                                      .getTime
-                                                      ./(1000) // seems like Sendgrid does not accept milliseconds
-                                                      .toString
+    case dateRegexpFull(timestamp) =>
+      (dateFormatFull.parseDateTime(timestamp).getMillis / 1000).toString
+    case dateRegexpShort(timestamp) =>
+      (dateFormatShort.parseDateTime(timestamp).getMillis / 1000).toString
     case _ => s
   }
 }

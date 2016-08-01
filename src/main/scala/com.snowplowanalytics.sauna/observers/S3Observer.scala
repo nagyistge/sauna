@@ -13,7 +13,7 @@
 package com.snowplowanalytics.sauna
 package observers
 
-//java
+// java
 import java.io.InputStream
 import java.net.URLDecoder
 

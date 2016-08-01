@@ -18,6 +18,7 @@ object Dependencies {
     val typesafeConfig = "1.3.0"
     val totoshi = "1.2.2"
     val seratch = "0.5.+"
+    val nscalaTime = "2.12.0"
     val play = "2.4.8"
     val akka = "2.4.8"
     val scalaTest = "2.2.4"
@@ -25,20 +26,21 @@ object Dependencies {
 
   object Libraries {
     // Java
-    val typesafeConfig   = "com.typesafe"         % "config"              % V.typesafeConfig
+    val typesafeConfig   = "com.typesafe"           % "config"              % V.typesafeConfig
 
     // Scala
-    val totoshi          = "com.github.tototoshi" %% "scala-csv"          % V.totoshi
-    val seratch          = "com.github.seratch"   %% "awscala"            % V.seratch
-    val playJson         = "com.typesafe.play"    %% "play-json"          % V.play
-    val playWs           = "com.typesafe.play"    %% "play-ws"            % V.play
-    val akkaActor        = "com.typesafe.akka"    %% "akka-actor"         % V.akka
-    val akkaCluster      = "com.typesafe.akka"    %% "akka-cluster"       % V.akka
-    val akkaClusterTools = "com.typesafe.akka"    %% "akka-cluster-tools" % V.akka
+    val totoshi          = "com.github.tototoshi"   %% "scala-csv"          % V.totoshi
+    val seratch          = "com.github.seratch"     %% "awscala"            % V.seratch
+    val nscalaTime       = "com.github.nscala-time" %% "nscala-time"        % V.nscalaTime
+    val playJson         = "com.typesafe.play"      %% "play-json"          % V.play
+    val playWs           = "com.typesafe.play"      %% "play-ws"            % V.play
+    val akkaActor        = "com.typesafe.akka"      %% "akka-actor"         % V.akka
+    val akkaCluster      = "com.typesafe.akka"      %% "akka-cluster"       % V.akka
+    val akkaClusterTools = "com.typesafe.akka"      %% "akka-cluster-tools" % V.akka
 
     // Test
-    val akkaTestkit      = "com.typesafe.akka"    %% "akka-testkit"       % V.akka              // scope to test?
-    val scalaTest        = "org.scalatest"        %% "scalatest"          % V.scalaTest         % "test"
+    val akkaTestkit      = "com.typesafe.akka"      %% "akka-testkit"       % V.akka              // scope to test?
+    val scalaTest        = "org.scalatest"          %% "scalatest"          % V.scalaTest         % "test"
   }
 
 }
