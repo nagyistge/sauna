@@ -16,8 +16,10 @@ package optimizely
 
 // java
 import java.io.{File, InputStream, PrintWriter, StringReader}
-import java.text.SimpleDateFormat
 import java.util.UUID
+
+// nscala-time
+import com.github.nscala_time.time.StaticDateTimeFormat
 
 // scala
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -167,9 +169,8 @@ class DCPDatasource(optimizely: Optimizely, saunaRoot: String, optimizelyImportR
    * @return Corrected word.
    */
   def correctWord(word: String): String = word match {
-    case dateRegexp(timestamp) => dateFormat.parse(timestamp)
-                                            .getTime
-                                            .toString
+    case dateRegexp(timestamp) =>
+      dateFormat.parseDateTime(timestamp).getMillis.toString
     case "t" => "true"
     case "f" => "false"
     case _ => word
@@ -177,7 +178,7 @@ class DCPDatasource(optimizely: Optimizely, saunaRoot: String, optimizelyImportR
 }
 
 object DCPDatasource {
-  val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
+  val dateFormat = StaticDateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZoneUTC()
   val dateRegexp = "^(\\d{1,4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d{1,3})$".r
 
   /**
