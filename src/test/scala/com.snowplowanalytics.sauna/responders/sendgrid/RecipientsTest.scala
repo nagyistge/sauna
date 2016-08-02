@@ -43,11 +43,10 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
   val filePath = "some-non-existing-file-123/opt/sauna/com.sendgrid.contactdb/recipients/v1/tsv:email,birthday,middle_name,favorite_number,when_promoted/ua-team/joe/warehouse.tsv"
   implicit val timeout = Timeout(10.seconds)
   implicit var system: ActorSystem = _
-  var sendgridToken: String = _
+  var sendgridToken: Option[String] = sys.env.get("SENDGRID_TOKEN")
 
   before {
     system = ActorSystem("RecipientsTest")
-    sendgridToken = System.getenv("SENDGRID_TOKEN")
   }
 
   test("makeValidJson valid data") {
@@ -57,8 +56,7 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"\"\t\"12\"\t\"2014-06-10 21:48:32.712\"",
       "\"ed@me.co.uk\"\t\"1992-09-12\"\t\"Jo\"\t\"98\"\t\"2015-01-28 07:32:16.329\""
     ).flatMap(Recipients.valuesFromTsv)
-    val result = Recipients.makeValidJson(keys, valuess)
-    val resultJson = Json.parse(result)
+    val resultJson = Recipients.makeValidJson(keys, valuess)
     val expected = """[{"email":"bob@foo.com","birthday":330393600,"middle_name":"Al","favorite_number":13,"when_promoted":1387116306},{"email":"karl@bar.de","birthday":173491200,"middle_name":null,"favorite_number":12,"when_promoted":1402436912},{"email":"ed@me.co.uk","birthday":716256000,"middle_name":"Jo","favorite_number":98,"when_promoted":1422430336}]"""
     val expectedJson = Json.parse(expected)
 
@@ -85,8 +83,7 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"null\"\t\"12\"\t\"2014-06-10 21:48:32.712\"",
       "\"ed@me.co.uk\"\t\"1992-09-12\"\t\"Jo\"\t\"98\"\t\"2015-01-28 07:32:16.329\""
     ).flatMap(Recipients.valuesFromTsv)
-    val result = Recipients.makeValidJson(keys, valuess)
-    val resultJson = Json.parse(result)
+    val resultJson = Recipients.makeValidJson(keys, valuess)
     val expected = """[{"email":"bob@foo.com","birthday":330393600,"middle_name":"Al","favorite_number":13,"when_promoted":1387116306},{"email":"karl@bar.de","birthday":173491200,"middle_name":"null","favorite_number":12,"when_promoted":1402436912},{"email":"ed@me.co.uk","birthday":716256000,"middle_name":"Jo","favorite_number":98,"when_promoted":1422430336}]"""
     val expectedJson = Json.parse(expected)
 
@@ -100,8 +97,7 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"\"\t\"12\"\t\"2014-06-10 21:48:32.712\"",
       "\"ed@me.co.uk\"\t\"1992-09-12\"\t\"Jo\"\t\"98\"\t\"2015-01-28 07:32:16.329\""
     ).flatMap(Recipients.valuesFromTsv)
-    val result = Recipients.makeValidJson(keys, valuess)
-    val resultJson = Json.parse(result)
+    val resultJson = Recipients.makeValidJson(keys, valuess)
     val expected = """[{"email":11111111111,"birthday":330393600,"middle_name":"Al","favorite_number":13,"when_promoted":1387116306},{"email":"karl@bar.de","birthday":173491200,"middle_name":null,"favorite_number":12,"when_promoted":1402436912},{"email":"ed@me.co.uk","birthday":716256000,"middle_name":"Jo","favorite_number":98,"when_promoted":1422430336}]"""
     val expectedJson = Json.parse(expected)
 
@@ -130,6 +126,8 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
   }
 
   test("handleErrors") {
+    assume(sendgridToken.isDefined)   // Or this should be moved into integration tests
+
     val data = Seq(
       "\"bob@foo.com1980-06-21\"\t\"Al\"\t\"13\"\t\"a2013-12-15 14:05:06.789\"",
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"\"\t\"12\"\t\"b2014-06-10 21:48:32.712\""
@@ -138,14 +136,15 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "Unable to process [bob@foo.com1980-06-21\tAl\t13\ta2013-12-15 14:05:06.789], it has only 4 columns, when 5 are required.",
       "Error 0 caused due to [date type conversion error]."
     )
-    // using custom logger to check if all messages really appeared
+
+    // Custom logger to check if all messages really appeared
     var received = Seq.empty[String]
     val logger = system.actorOf(Props(new Logger {
       override def log(message: Notification): Unit = received :+= message.text
-
-      override def log(message: Manifestation): Unit = {}
+      override def log(message: Manifestation): Unit = ()
     }))
-    val sendgrid = new Sendgrid(sendgridToken, logger)
+
+    val sendgrid = new Sendgrid(sendgridToken.get, logger)
     val recipients = system.actorOf(Recipients(logger, sendgrid))
 
     // send a message, get a Future notification that it was processed
@@ -165,10 +164,11 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
                   .mkString("\n")
     val logger = system.actorOf(Props(new MutedLogger))
     val mockedSendgrid = new Sendgrid("", logger) {
-      override def postRecipients(json: String): Future[WSResponse] = {
-        Json.parse(json)
-            .asOpt[JsArray]
-            .foreach( array => assert(array.value.length <= Recipients.LINE_LIMIT, "too many lines in a single chunk") )
+      override def postRecipients(json: JsValue): Future[WSResponse] = {
+        json.asOpt[JsArray]
+            .foreach { array =>
+              assert(array.value.length <= Recipients.LINE_LIMIT, "too many lines in a single chunk")
+            }
 
         Future.failed(new Exception)
       }

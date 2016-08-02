@@ -20,16 +20,17 @@ import scala.concurrent.Future
 import akka.actor.ActorRef
 
 // play
+import play.api.libs.json.JsValue
 import play.api.libs.ws.WSResponse
 
 // sauna
 import utils._
 
 /**
- * Encapsulates any action with Sendgrid.
+ * Sendgrid API wrapper. Encapsulates all communications with Sendgrid
  *
- * @param token Sendgrid token.
- * @param logger A logger actor.
+ * @param token Sendgrid token
+ * @param logger logging actor
  */
 class Sendgrid(token: String, logger: ActorRef) {
   import Sendgrid._
@@ -42,18 +43,18 @@ class Sendgrid(token: String, logger: ActorRef) {
    */
   def getRecipient(id: String): Future[WSResponse] =
     wsClient.url(urlPrefix + s"contactdb/recipients/$id")
-                .withHeaders("Authorization" -> s"Bearer $token")
-                .get
+            .withHeaders("Authorization" -> s"Bearer $token")
+            .get
 
   /**
    * Tries to upload several recipients. Note that this function is not limited by
    * Sendgrid's limit in 1500 recipients per second, it does what is said to do.
    *
-   * @param json This String supposed to be valid json for Sendgrid api.
+   * @param json JSON supposed to be an array of objects ready to be sent to Sendgrid
    * @return Future[Response]
    * @see Sendgrid.makeValidJson
    */
-  def postRecipients(json: String): Future[WSResponse] =
+  def postRecipients(json: JsValue): Future[WSResponse] =
     wsClient.url(urlPrefix + s"contactdb/recipients")
             .withHeaders("Authorization" -> s"Bearer $token", "Content-Type" -> "application/json")
             .post(json)

@@ -23,13 +23,14 @@ import com.github.nscala_time.time.StaticDateTimeFormat
 // scala
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.Source.fromInputStream
+import scala.util.Try
 import scala.util.control.NonFatal
 
 // akka
 import akka.actor.{ActorRef, Props}
 
 // play
-import play.api.libs.json.{ Json, JsObject }
+import play.api.libs.json._
 
 // scala-csv
 import com.github.tototoshi.csv._
@@ -41,61 +42,41 @@ import responders.Responder.FileAppeared
 import utils._
 
 /**
- * Does stuff for Sendgrid import recipients feature.
+ * Does stuff for Sendgrid import recipients feature
  *
  * @see https://sendgrid.com/docs/User_Guide/Marketing_Campaigns/contacts.html
  * @see https://github.com/snowplow/sauna/wiki/SendGrid-responder-user-guide
- * @param sendgrid Instance of Sendgrid.
+ * @param sendgrid Sendgrid API Wrapper
  * @param logger A logger actor.
  */
 class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
   import Recipients._
 
+  /**
+   * Regular expression allowing to extract TSV attributes from file path
+   */
   val pathPattern =
     """.*com\.sendgrid\.contactdb/
       |recipients/
       |v1/
       |tsv:([^\/]+)/
       |.+$
-    """.stripMargin
-       .replaceAll("[\n ]", "")
+    """.stripMargin.replaceAll("[\n ]", "")
   val pathRegexp = pathPattern.r
 
-  override def process(fileAppeared: FileAppeared): Unit = {
-    import fileAppeared._
-
-    filePath match {
+  // TODO: handle wrong path?
+  def process(fileAppeared: FileAppeared): Unit = {
+    fileAppeared.filePath match {
+      case pathRegexp(attrs) if attrs.isEmpty =>
+        logger ! Notification("Should be at least one attribute")
+      case pathRegexp(attrs) if !attrs.contains("email") =>
+          logger ! Notification("Attribute 'email' must be included")
       case pathRegexp(attrs) =>
-        if (attrs.isEmpty) {
-          logger ! Notification("Should be at least one attribute.")
-          return
-        }
-
-        if (!attrs.contains("email")) {
-          logger ! Notification("Attribute 'email' must be included.")
-          return
-        }
-
         val keys = attrs.split(",")
-
-        // do the stuff
-        getData(is).foreach(processData(keys, _))
+        getData(fileAppeared.is).foreach { chunk =>
+          processData(keys, chunk)
+        }
     }
-  }
-
-  /**
-   * This method does the first part of job for "import recipients" feature.
-   * It gets file content, parses it and splits into smaller chunks to satisfy Sendgrid's limitations.
-   *
-   * @param is InputStream to data file.
-   * @return Iterator of valuess data. Valuess are extracted from the file.
-   * @see `Recipients.makeValidJson`
-   */
-  def getData(is: InputStream): Iterator[Seq[Seq[String]]] = {
-    fromInputStream(is).getLines()
-                       .toSeq
-                       .flatMap(valuesFromTsv)
-                       .grouped(LINE_LIMIT)
   }
 
   /**
@@ -157,44 +138,44 @@ class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
                         "updated_count":0
                      }
    */
-  def handleErrors(totalRecordsNumber: Int, jsonText: String) = try {
-    val json = Json.parse(jsonText)
-    val errorCount = (json \ "error_count").as[Int]
-    val errorIndices = (json \ "error_indices").as[Seq[Int]]
-    val errorsOpt = (json \ "errors").asOpt[Seq[JsObject]]
-    val newCount = (json \ "new_count").as[Int]
-    val updatedCount = (json \ "updated_count").as[Int]
+  def handleErrors(totalRecordsNumber: Int, jsonText: String): Unit =
+    try {
+      val json = Json.parse(jsonText)
+      val errorCount = (json \ "error_count").as[Int]
+      val errorIndices = (json \ "error_indices").as[Seq[Int]]
+      val errorsOpt = (json \ "errors").asOpt[Seq[JsObject]]
+      val newCount = (json \ "new_count").as[Int]
+      val updatedCount = (json \ "updated_count").as[Int]
 
-    // trying to get error explanation
-    for (errorIndex <- errorIndices;
-         errors <- errorsOpt) {
-      errors.map(_.value)
-            .find(_.apply("error_indices")
-                   .as[Seq[Int]]
-                   .contains(errorIndex)) match {
-        case Some(error) =>
-          val reason = error.apply("message")
-                            .as[String]
-          logger ! Notification(s"Error $errorIndex caused due to [$reason].")
+      // trying to get error explanation
+      for {
+        errorIndex <- errorIndices
+        errors     <- errorsOpt
+      } {
+        errors.map(_.value).find(_.apply("error_indices").as[Seq[Int]].contains(errorIndex)) match {
+          case Some(error) =>
+            val reason = error.apply("message").as[String]
+            logger ! Notification(s"Error $errorIndex caused due to [$reason].")
 
-        case None =>
-          logger ! Notification(s"Unable to find reason for error $errorIndex.")
+          case None =>
+            logger ! Notification(s"Unable to find reason for error $errorIndex.")
+        }
       }
-    }
 
-    if (errorCount + newCount + updatedCount != totalRecordsNumber) {
-      logger ! Notification(s"For some reasons, several records disappeared. " +
-                            s"It's rare Sendgrid's bug double-check you input. ")
-    }
+      if (errorCount + newCount + updatedCount != totalRecordsNumber) {
+        val message = "For some reasons, several records disappeared. It's rare Sendgrid bug. Double-check you input."
+        logger ! Notification(message)
+      }
 
-  } catch { case NonFatal(e) =>
-    logger ! Notification(s"Got exception ${e.getMessage} while parsing Sendgrid's response.")
-  }
+    } catch {
+      case NonFatal(e) =>
+        logger ! Notification(s"Got exception ${e.getMessage} while parsing Sendgrid's response.")
+    }
 }
 
 object Recipients {
-  val LINE_LIMIT = 1000 // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-a-Single-Recipient-to-a-List-POST
-  val WAIT_TIME = 667L // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-Recipients-POST
+  val LINE_LIMIT = 1000   // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-a-Single-Recipient-to-a-List-POST
+  val WAIT_TIME = 667L    // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-Recipients-POST
 
   val dateFormatFull = StaticDateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZoneUTC()
   val dateRegexpFull = "^(\\d{1,4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d{1,3})$".r
@@ -212,8 +193,24 @@ object Recipients {
     Props(new Recipients(sendgrid, logger))
 
   /**
+   * This method does the first part of job for "import recipients" feature.
+   * It gets file content, parses it and splits into smaller chunks to satisfy Sendgrid's limitations.
+   *
+   * Deepest-level container contains tab-separated values
+   * Second-level container contains lines
+   * First-level container contains chunks of lines according to [[LINE_LIMIT]]
+   *
+   * @param is InputStream to data file.
+   * @return Iterator of valuess data. Valuess are extracted from the file.
+   * @see `Recipients.makeValidJson`
+   */
+  def getData(is: InputStream): Iterator[Seq[Seq[String]]] =
+    fromInputStream(is).getLines().flatMap(valuesFromTsv).grouped(LINE_LIMIT)
+
+  /**
    * Creates a Sendgrid-friendly JSON from given keys and values
    * Also transforms everything look-alike datetime (ISO-8601) into Unix epoch
+   * Length of `keys` **MUST** be equal to amount of length of inner Seq
    *
    * For example, for `keys` = Seq("name1", "name2"),
    *                  `values` = Seq(Seq("value11", "value12"), Seq("value21", "value22")),
@@ -236,20 +233,35 @@ object Recipients {
    * @return Sendgrid-friendly JSON
    * @see https://github.com/snowplow/sauna/wiki/SendGrid-responder-user-guide#214-response-algorithm
    */
-  def makeValidJson(keys: Seq[String], values: Seq[Seq[String]]): String = {
+  private[sendgrid] def makeValidJson(keys: Seq[String], values: Seq[Seq[String]]): JsArray = {
     val recipients = for {
       vals            <- values
-      _                = assert(vals.length == keys.length)   // TODO: avoid throwing runtime exception
+      _                = assert(vals.length == keys.length)
       correctedValues  = vals.map(correctTimestamps)}
       yield {
-        val recipientsData = keys.zip(correctedValues)
-        Json.toJson(recipientsData.toMap)
-          .toString
-          .replaceAll("\"\"", "null")      // null should be without quotations
-          .replaceAll(""""(\d+)"""", "$1") // and positive integers too
+        val zipped = keys.zip(correctedValues.map(x => Json.toJson(x)))
+        val recipientData = JsObject(zipped.toMap)
+        postProcess(recipientData)
       }
 
-    s"[${recipients.mkString(",")}]"
+    JsArray(recipients)
+  }
+
+  /**
+   * Transform JSON derived from TSV using following rules:
+   * + empty string becomes null
+   * + numeric string becomes number
+   *
+   * @param json one-level JSON object extracted from TSV
+   * @return
+   */
+  def postProcess(json: JsObject): JsObject = {
+    JsObject(json.value.mapValues {
+      case JsString("") => JsNull
+      case JsString(v)  =>
+        Try(v.toDouble).toOption.map(d => JsNumber(d)).getOrElse(JsString(v))
+      case other => other
+    })
   }
 
   /**
