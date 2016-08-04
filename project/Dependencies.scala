@@ -19,6 +19,8 @@ object Dependencies {
     val totoshi = "1.2.2"
     val seratch = "0.5.+"
     val nscalaTime = "2.12.0"
+    val scopt = "3.5.0"
+    val avro4s = "1.4.3"
     val play = "2.4.8"
     val akka = "2.4.8"
     val scalaTest = "2.2.4"
@@ -32,6 +34,8 @@ object Dependencies {
     val totoshi          = "com.github.tototoshi"   %% "scala-csv"          % V.totoshi
     val seratch          = "com.github.seratch"     %% "awscala"            % V.seratch
     val nscalaTime       = "com.github.nscala-time" %% "nscala-time"        % V.nscalaTime
+    val scopt            = "com.github.scopt"       %% "scopt"              % V.scopt
+    val avro4s           = "com.sksamuel.avro4s"    %% "avro4s-core"        % V.avro4s
     val playJson         = "com.typesafe.play"      %% "play-json"          % V.play
     val playWs           = "com.typesafe.play"      %% "play-ws"            % V.play
     val akkaActor        = "com.typesafe.akka"      %% "akka-actor"         % V.akka

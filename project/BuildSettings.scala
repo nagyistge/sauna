@@ -14,14 +14,13 @@ import sbt._
 import Keys._
 import sbtassembly.AssemblyKeys._
 import sbtassembly.{PathList, MergeStrategy}
+import sbtavrohugger.SbtAvrohugger._
 
-object SaunaBuild {
+
+object BuildSettings {
 
   lazy val buildSettings = Seq[Setting[_]](
     organization  := "com.snowplowanalytics",
-    name          := "sauna",
-    version       := "0.1.0-M1",
-    description   := "A decisioning and response framework",
     scalaVersion  := "2.11.8",
     scalacOptions := Seq(
                        "-deprecation",
@@ -36,7 +35,6 @@ object SaunaBuild {
                        "-Ywarn-nullary-unit",
                        "-Ywarn-numeric-widen",
                        "-Ywarn-unused",
-                       "-Ywarn-unused-import",
                        "-Ywarn-value-discard"
                      ),
     javacOptions := Seq(
@@ -66,5 +64,24 @@ object SaunaBuild {
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     }
+  )
+
+  // Add access to build info in code
+  lazy val scalifySettings = Seq(
+
+    (scalaSource in avroConfig) := (sourceManaged in Compile).value / "avro",
+
+    sourceGenerators in Compile += Def.task {
+      val file = (sourceManaged in Compile).value / "generated" / "settings.scala"
+      IO.write(file, s"""package com.snowplowanalytics.${name.value}.generated
+                         |object ProjectSettings {
+                         |  val version = "${version.value}"
+                         |  val name = "${name.value}"
+                         |  val organization = "${organization.value}"
+                         |  val scalaVersion = "${scalaVersion.value}"
+                         |}
+                         |""".stripMargin)
+      Seq(file)
+    }.taskValue
   )
 }

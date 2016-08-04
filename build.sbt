@@ -12,14 +12,22 @@
  */
 
 lazy val root = (project in file("."))
-  .settings(SaunaBuild.buildSettings: _*)
+  .settings(
+    name          := "sauna",
+    version       := "0.1.0-M1",
+    description   := "A decisioning and response framework"
+  )
+  .settings(BuildSettings.buildSettings)
   .settings(sbtavrohugger.SbtAvrohugger.avroSettings)
+  .settings(BuildSettings.scalifySettings)
   .settings(
     libraryDependencies ++= Seq(
       Dependencies.Libraries.typesafeConfig,
       Dependencies.Libraries.totoshi,
       Dependencies.Libraries.seratch,
       Dependencies.Libraries.nscalaTime,
+      Dependencies.Libraries.scopt,
+      Dependencies.Libraries.avro4s,
       Dependencies.Libraries.playJson,
       Dependencies.Libraries.playWs,
       Dependencies.Libraries.akkaActor,

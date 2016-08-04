@@ -14,6 +14,7 @@ package com.snowplowanalytics.sauna
 package observers
 
 // scala
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 // akka
@@ -25,7 +26,12 @@ import akka.util.Timeout
  * This trait collects common useful stuff for possible implementations.
  */
 trait Observer extends Thread {
-  setDaemon(true) // run as a daemon
-  implicit val timeout = Timeout(10.seconds) // timeout for Future responses
-  implicit val ec = scala.concurrent.ExecutionContext.Implicits.global // for ask pattern
+
+  setDaemon(true)
+
+   // timeout for Future responses
+  implicit val timeout = Timeout(10.seconds)
+
+   // for ask pattern
+  implicit val context: ExecutionContext = ExecutionContext.Implicits.global
 }

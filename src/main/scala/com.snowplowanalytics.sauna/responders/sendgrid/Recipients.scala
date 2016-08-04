@@ -86,7 +86,6 @@ class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
    * @param keys Seq of attribute keys, repeated for each recipient from `valuess`.
    * @param valuess Seq of recipients, where recipient is a seq of attribute values.
    *                Each `values` in `valuess` should have one length with `keys`.
-   * @see `Recipients.makeValidJson`
    */
   def processData(keys: Seq[String], valuess: Seq[Seq[String]]): Unit = {
     val (probablyValid, definitelyInvalid) = valuess.partition(_.length == keys.length)
@@ -97,10 +96,10 @@ class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
                             s"it has only ${invalidValues.length} columns, when ${keys.length} are required.")
     }
 
-    val json = Recipients.makeValidJson(keys, probablyValid)
+    val json = makeValidJson(keys, probablyValid)
     sendgrid
       .postRecipients(json)
-      .foreach { case response => handleErrors(probablyValid.length, response.body) }
+      .foreach { response => handleErrors(probablyValid.length, response.body) }
 
     Thread.sleep(WAIT_TIME) // note that for actor all messages come from single queue
                             // so new `fileAppeared` will be processed after current one
@@ -253,7 +252,7 @@ object Recipients {
    * + numeric string becomes number
    *
    * @param json one-level JSON object extracted from TSV
-   * @return
+   * @return cleaned JSON
    */
   def postProcess(json: JsObject): JsObject = {
     JsObject(json.value.mapValues {

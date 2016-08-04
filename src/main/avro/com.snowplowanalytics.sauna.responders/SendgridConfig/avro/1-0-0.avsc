@@ -15,7 +15,8 @@
       "name": "name",
       "type": "string"
     },
-    { "name": "parameters",
+    {
+      "name": "parameters",
       "type": {
         "name": "SendgridConfigParameters",
         "type": "record",

@@ -12,14 +12,12 @@
  */
 package com.snowplowanalytics.sauna
 
-// java
-import akka.cluster.Cluster
-
 // typesafe-config
 import com.typesafe.config.ConfigFactory
 
 // akka
 import akka.actor._
+import akka.cluster.Cluster
 import akka.cluster.singleton._
 
 // sauna
@@ -30,52 +28,45 @@ import config._
  * Main class, starts the Sauna program.
  */
 object Sauna extends App {
-  if (args.length == 0) {
-    println("""Usage: 'sbt "run <path_to_file_with_credentials>" <port>' """)
-    System.exit(1)
+
+  SaunaOptions.parser.parse(args, SaunaOptions.initial) match {
+    case Some(options) => run(options)
+    case None => sys.exit(1)
   }
 
-  // configuration
-  // this very ineffective search will be 1) executed once 2) executed on list with length <= 10
-  // so readability here is more important, than performance
-  val respondersLocation = args.zipWithIndex
-                               .find { case (_, r) => args(r) == "--responders" }
-                               .map { case (_, r) => args(r + 1) }
-                               .getOrElse(throw new RuntimeException("No location for responders defined!"))
-  val respondersConfig = RespondersConfig(respondersLocation)
+  /**
+   * Run sauna with provided configuration
+   *
+   * @param options options parsed from command line
+   */
+  def run(options: SaunaOptions): Unit = {
+    val respondersConfig = RespondersConfig(options.respondersLocation.getAbsolutePath)
+    val observersConfig = ObserversConfig(options.observersLocation.getAbsolutePath)
+    val loggersConfig = LoggersConfig(options.observersLocation.getAbsolutePath)
 
-  val observersLocation = args.zipWithIndex
-                              .find { case (_, r) => args(r) == "--observers" }
-                              .map { case (_, r) => args(r + 1) }
-                              .getOrElse(throw new RuntimeException("No location for observers defined!"))
-  val observersConfig = ObserversConfig(observersLocation)
+    val config = ConfigFactory
+      .parseString(s"akka.remote.netty.tcp.port=${options.port}")
+      .withFallback(ConfigFactory.load())
 
-  val loggersLocation = args.zipWithIndex
-                            .find { case (_, r) => args(r) == "--loggers" }
-                            .map { case (_, r) => args(r + 1) }
-                            .getOrElse(throw new RuntimeException("No location for loggers defined!"))
-  val loggersConfig = LoggersConfig(observersLocation)
+    val system = ActorSystem("sauna", config)
+    // TODO: use cluster
+    val _ = Cluster(system)
 
-  val port = args.last
-  val config = ConfigFactory.parseString(s"akka.remote.netty.tcp.port=$port")
-                            .withFallback(ConfigFactory.load())
-  val system = ActorSystem("sauna", config)
-  val cluster = Cluster(system)
+    if (observersConfig.localObserverEnabled) {
+      // this actor runs on all nodes
+      val _ = system.actorOf(Props(new UbiquitousActor(respondersConfig, observersConfig, loggersConfig)), "UbiquitousActor")
+    }
 
-  if (observersConfig.localObserverEnabled) {
-    // this actor runs on all nodes
-    system.actorOf(Props(new UbiquitousActor(respondersConfig, observersConfig, loggersConfig)), "UbiquitousActor")
-  }
-
-  if (observersConfig.s3ObserverEnabled) {
-    // this actor runs on one and only one node
-    system.actorOf(
-      ClusterSingletonManager.props(
-        singletonProps = Props(new SingletonActor(respondersConfig, observersConfig, loggersConfig)),
-        terminationMessage = PoisonPill,
-        settings = ClusterSingletonManagerSettings(system)
-      ),
-      name = "SingletonActor"
-    )
+    if (observersConfig.s3ObserverEnabled) {
+      // this actor runs on one and only one node
+      val _ = system.actorOf(
+        ClusterSingletonManager.props(
+          singletonProps = Props(new SingletonActor(respondersConfig, observersConfig, loggersConfig)),
+          terminationMessage = PoisonPill,
+          settings = ClusterSingletonManagerSettings(system)
+        ),
+        name = "SingletonActor"
+      )
+    }
   }
 }

@@ -52,7 +52,6 @@ class Sendgrid(token: String, logger: ActorRef) {
    *
    * @param json JSON supposed to be an array of objects ready to be sent to Sendgrid
    * @return Future[Response]
-   * @see Sendgrid.makeValidJson
    */
   def postRecipients(json: JsValue): Future[WSResponse] =
     wsClient.url(urlPrefix + s"contactdb/recipients")

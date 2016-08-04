@@ -72,10 +72,10 @@ trait Responder extends Actor {
 object Responder {
   /**
    * File can be outside of local fs, e.g. on AWS S3, and
-   * some important parameters might be encoded as part of 'filePath',
-   * therefore this method has both 'filePath: String' and 'InputStream'.
+   * some important parameters might be encoded as part of `filePath`,
+   * therefore this method has both 'filePath: String' and `InputStream`
    *
-   * @param filePath Full path of file.
+   * @param filePath full path of file
    * @param is InputStream from it.
    *           *** This field is mutable! ***
    */

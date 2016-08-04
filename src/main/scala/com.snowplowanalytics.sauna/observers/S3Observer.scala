@@ -26,7 +26,7 @@ import play.api.libs.json.Json
 
 // awscala
 import awscala.s3.{Bucket, S3}
-import awscala.sqs.{Queue, SQS}
+import awscala.sqs.{Queue, SQS, Message}
 
 // sauna
 import loggers.Logger.Notification
@@ -60,30 +60,35 @@ class S3Observer(s3: S3, sqs: SQS, queue: Queue, responders: Seq[ActorRef], logg
         }
       )
   }
+  
+  def notifyResponders(message: Message): Unit = {
+    val (bucketName, fileName) = getBucketAndFile(message.body).getOrElse {
+      throw new Exception("Unable to find required fields in message json. Probably schema has changed.")
+    }
+
+    val decodedFileName = URLDecoder.decode(fileName, "UTF-8")
+    val decodedBucketName = URLDecoder.decode(bucketName, "UTF-8")
+    val is = getInputStream(bucketName, decodedFileName)
+
+    logger ! Notification(s"Detected new S3 file $decodedFileName")
+
+    responders.foreach { responder =>
+      val f = responder ? FileAppeared(decodedFileName, is) // trigger responder
+
+      f.onComplete { _ => // cleanup
+        s3.deleteObject(decodedBucketName, decodedFileName)
+      }
+    }
+    sqs.delete(message)
+  }
 
   override def run(): Unit =
     try {
       while (running) {
-        sqs.receiveMessage(queue, count = 10, wait = 1) // blocking, so no overlapping happens
-           .foreach { case message =>
-             val (bucketName, fileName) = getBucketAndFile(message.body)
-                                           .getOrElse(throw new Exception("Unable to find required fields in message json. Probably schema has changed."))
-             val decodedFileName = URLDecoder.decode(fileName, "UTF-8")
-             val decodedBucketName = URLDecoder.decode(bucketName, "UTF-8")
-             val is = getInputStream(bucketName, decodedFileName)
-
-             logger ! Notification(s"Detected new S3 file $decodedFileName.")
-             responders.foreach { case responder =>
-               val f = responder ? FileAppeared(decodedFileName, is) // trigger responder
-
-               f.onComplete { case _ => // cleanup
-                 s3.deleteObject(decodedBucketName, decodedFileName)
-               }
-             }
-             sqs.delete(message)
-           }
+        // blocking, so no overlapping happens
+        // TODO: really polling? Wouldn't it occupy CPU if queue just empty
+        sqs.receiveMessage(queue, count = 10, wait = 1).foreach(notifyResponders)
       }
-
     } catch {
       case e: InterruptedException => running = false
     }

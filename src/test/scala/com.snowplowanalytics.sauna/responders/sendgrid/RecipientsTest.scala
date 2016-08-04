@@ -155,7 +155,7 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
 
     // wait for communication with Sendgrid
     Thread.sleep(2000)
-    
+
     assert(received == expected)
   }
 

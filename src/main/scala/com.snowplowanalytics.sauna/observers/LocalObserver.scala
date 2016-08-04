@@ -45,7 +45,7 @@ class LocalObserver(observedDir: String, responders: Seq[ActorRef], logger: Acto
     if (event == StandardWatchEventKinds.ENTRY_CREATE) {
       val is = new FileInputStream(path.toFile)
 
-      logger ! Notification(s"Detected new local file [$path].")
+      logger ! Notification(s"Detected new local file [$path]")
 
       val futures = responders.map(responder => responder ? FileAppeared(path.toString, is) )
       Future.sequence(futures).foreach(_ => Files.delete(path)) // cleanup
