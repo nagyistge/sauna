@@ -59,13 +59,13 @@ abstract class CommonActor(respondersConfig: RespondersConfig,
   // responders
   var responderActors = List.empty[ActorRef]
   if (respondersConfig.targetingListEnabled) {
-    responderActors +:= context.actorOf(TargetingList(optimizely, logger), "TargetingList")
+    responderActors +:= context.actorOf(TargetingListResponder(optimizely, logger), "TargetingListResponder")
   }
   if (respondersConfig.dynamicClientProfilesEnabled) {
-    responderActors +:= context.actorOf(DCPDatasource(optimizely, observersConfig.saunaRoot, respondersConfig.optimizelyImportRegion, logger), "DCPDatasource")
+    responderActors +:= context.actorOf(DcpResponder(optimizely, observersConfig.saunaRoot, respondersConfig.optimizelyImportRegion, logger), "DcpResponder")
   }
   if (respondersConfig.recipientsEnabled) {
-    responderActors +:= context.actorOf(Recipients(logger, sendgrid), "Recipients")
+    responderActors +:= context.actorOf(RecipientsResponder(logger, sendgrid), "RecipientsResponder")
   }
 
   def receive: Receive = {

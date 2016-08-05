@@ -147,7 +147,7 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
     val _ = new File(destinationPath).mkdirs()
     Files.deleteIfExists(destination)
 
-    // this should be changed if TargetingList works properly
+    // this should be changed if TargetingListResponder works properly
     var id: String = null
 
     // actors (if executed in another thread) silences error
@@ -187,7 +187,7 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
 
     // define Optimizely, responder and observer
     val optimizely = new Optimizely(optimizelyToken, logger)
-    val responderActors = Seq(system.actorOf(TargetingList(optimizely, logger)))
+    val responderActors = Seq(system.actorOf(TargetingListResponder(optimizely, logger)))
     val observers = Seq(new LocalObserver(saunaRoot, responderActors, logger)(dummyActor))   // TODO: can it be dummy?
     observers.foreach(new Thread(_).start())
 
@@ -223,7 +223,7 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
     // clean up, if object does not exist, Amazon S3 returns a success message instead of an error message
     s3.deleteObject(awsBucketName, destination)
 
-    // this should be changed if TargetingList works properly
+    // this should be changed if TargetingListResponder works properly
     var id: String = null
 
     // actors (if executed in another thread) silences error
@@ -263,7 +263,7 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
 
     // define Optimizely, responder and observer
     val optimizely = new Optimizely(optimizelyToken, logger)
-    val responderActors = Seq(system.actorOf(TargetingList(optimizely, logger)))
+    val responderActors = Seq(system.actorOf(TargetingListResponder(optimizely, logger)))
     val observers = Seq(new S3Observer(s3, sqs, queue, responderActors, logger)(dummyActor))
     observers.foreach(new Thread(_).start())
 
@@ -339,7 +339,7 @@ class IntegrationTests extends FunSuite with BeforeAndAfter {
 
     // define Optimizely, responder and observer
     val optimizely = new Optimizely(optimizelyToken, logger)
-    val responderActors = Seq(system.actorOf(DCPDatasource(optimizely, saunaRoot, optimizelyImportRegion, logger)))
+    val responderActors = Seq(system.actorOf(DcpResponder(optimizely, saunaRoot, optimizelyImportRegion, logger)))
     val observers = Seq(new LocalObserver(saunaRoot, responderActors, logger)(dummyActor))   // TODO: can it be dummy?
     observers.foreach(new Thread(_).start())
 

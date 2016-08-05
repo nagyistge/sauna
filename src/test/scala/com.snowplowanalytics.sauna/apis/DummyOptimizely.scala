@@ -14,7 +14,7 @@ package com.snowplowanalytics.sauna
 package apis
 
 // scala
-import com.snowplowanalytics.sauna.responders.optimizely.TargetingList
+import com.snowplowanalytics.sauna.responders.optimizely.TargetingListResponder
 
 import scala.concurrent.Future
 
@@ -22,7 +22,7 @@ import scala.concurrent.Future
 import play.api.libs.ws.WSResponse
 
 // sauna
-import TargetingList.Data
+import TargetingListResponder.Data
 
 class DummyOptimizely extends Optimizely("", null) { // DummyOptimizely wont need these value
   override def postTargetingLists(tlData: Seq[Data]): Future[WSResponse] =

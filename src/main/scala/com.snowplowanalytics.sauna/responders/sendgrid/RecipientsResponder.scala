@@ -49,8 +49,8 @@ import utils._
  * @param sendgrid Sendgrid API Wrapper
  * @param logger A logger actor.
  */
-class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
-  import Recipients._
+class RecipientsResponder(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
+  import RecipientsResponder._
 
   /**
    * Regular expression allowing to extract TSV attributes from file path
@@ -113,29 +113,29 @@ class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
    * @param totalRecordsNumber Sometimes records "disappear".
    *                           So, originally were 10, error_count = 2, updated_count = 4, new_count = 3.
    *                           One record was lost. This param is expected total records number.
-   * @param jsonText A json text from Sendgrid.
-   *                 example:
-
-                     {
-                        "error_count":1,
-                        "error_indices":[
-                           2
-                        ],
-                        "errors":[
-                           {
-                              "error_indices":[
-                                 2
-                              ],
-                              "message":"date type conversion error"
-                           }
-                        ],
-                        "new_count":2,
-                        "persisted_recipients":[
-                           "Ym9iQGZvby5jb20=",
-                           "a2FybEBiYXIuZGU="
-                        ],
-                        "updated_count":0
-                     }
+   * @param jsonText           A json text from Sendgrid.
+   *                           example:
+   **
+   *                           {
+   *                           "error_count":1,
+   *                           "error_indices":[
+   *                           2
+   *                           ],
+   *                           "errors":[
+   *                           {
+   *                           "error_indices":[
+   *                           2
+   *                           ],
+   *                           "message":"date type conversion error"
+   *                           }
+   *                           ],
+   *                           "new_count":2,
+   *                           "persisted_recipients":[
+   *                           "Ym9iQGZvby5jb20=",
+   *                           "a2FybEBiYXIuZGU="
+   *                           ],
+   *                           "updated_count":0
+   *                           }
    */
   def handleErrors(totalRecordsNumber: Int, jsonText: String): Unit =
     try {
@@ -172,7 +172,7 @@ class Recipients(sendgrid: Sendgrid, logger: ActorRef) extends Responder {
     }
 }
 
-object Recipients {
+object RecipientsResponder {
   val LINE_LIMIT = 1000   // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-a-Single-Recipient-to-a-List-POST
   val WAIT_TIME = 667L    // https://sendgrid.com/docs/API_Reference/Web_API_v3/Marketing_Campaigns/contactdb.html#Add-Recipients-POST
 
@@ -182,14 +182,14 @@ object Recipients {
   val dateRegexpShort = "^(\\d{1,4}-\\d{1,2}-\\d{1,2})$".r
 
   /**
-   * Constructs a Props for Recipients actor.
+   * Constructs a Props for RecipientsResponder actor.
    *
    * @param sendgrid Instance of Sendgrid.
    * @param logger Actor with underlying Logger.
    * @return Props for new actor.
    */
   def apply(logger: ActorRef, sendgrid: Sendgrid): Props =
-    Props(new Recipients(sendgrid, logger))
+    Props(new RecipientsResponder(sendgrid, logger))
 
   /**
    * This method does the first part of job for "import recipients" feature.
@@ -201,7 +201,7 @@ object Recipients {
    *
    * @param is InputStream to data file.
    * @return Iterator of valuess data. Valuess are extracted from the file.
-   * @see `Recipients.makeValidJson`
+   * @see `RecipientsResponder.makeValidJson`
    */
   def getData(is: InputStream): Iterator[Seq[Seq[String]]] =
     fromInputStream(is).getLines().flatMap(valuesFromTsv).grouped(LINE_LIMIT)

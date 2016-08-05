@@ -39,14 +39,14 @@ import loggers._
 import loggers.Logger._
 import responders.Responder._
 
-class RecipientsTest extends FunSuite with BeforeAndAfter {
+class RecipientsResponderTest extends FunSuite with BeforeAndAfter {
   val filePath = "some-non-existing-file-123/opt/sauna/com.sendgrid.contactdb/recipients/v1/tsv:email,birthday,middle_name,favorite_number,when_promoted/ua-team/joe/warehouse.tsv"
   implicit val timeout = Timeout(10.seconds)
   implicit var system: ActorSystem = _
   var sendgridToken: Option[String] = sys.env.get("SENDGRID_TOKEN")
 
   before {
-    system = ActorSystem("RecipientsTest")
+    system = ActorSystem("RecipientsResponderTest")
   }
 
   test("makeValidJson valid data") {
@@ -55,8 +55,8 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "\"bob@foo.com\"\t\"1980-06-21\"\t\"Al\"\t\"13\"\t\"2013-12-15 14:05:06.789\"",
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"\"\t\"12\"\t\"2014-06-10 21:48:32.712\"",
       "\"ed@me.co.uk\"\t\"1992-09-12\"\t\"Jo\"\t\"98\"\t\"2015-01-28 07:32:16.329\""
-    ).flatMap(Recipients.valuesFromTsv)
-    val resultJson = Recipients.makeValidJson(keys, valuess)
+    ).flatMap(RecipientsResponder.valuesFromTsv)
+    val resultJson = RecipientsResponder.makeValidJson(keys, valuess)
     val expected = """[{"email":"bob@foo.com","birthday":330393600,"middle_name":"Al","favorite_number":13,"when_promoted":1387116306},{"email":"karl@bar.de","birthday":173491200,"middle_name":null,"favorite_number":12,"when_promoted":1402436912},{"email":"ed@me.co.uk","birthday":716256000,"middle_name":"Jo","favorite_number":98,"when_promoted":1422430336}]"""
     val expectedJson = Json.parse(expected)
 
@@ -69,10 +69,10 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "\"bob@foo.com\"\"1980-06-21\"\t\"Al\"\t\"13\"\t\"2013-12-15 14:05:06.789\"",
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"\"\t\"12\"\t\"2014-06-10 21:48:32.712\"",
       "\"ed@me.co.uk\"\t\"1992-09-12\"\t\"Jo\"\t\"98\"\t\"2015-01-28 07:32:16.329\""
-    ).flatMap(Recipients.valuesFromTsv)
+    ).flatMap(RecipientsResponder.valuesFromTsv)
 
     val _ = intercept[AssertionError] {
-      Recipients.makeValidJson(keys, valuess)
+      RecipientsResponder.makeValidJson(keys, valuess)
     }
   }
 
@@ -82,8 +82,8 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "\"bob@foo.com\"\t\"1980-06-21\"\t\"Al\"\t\"13\"\t\"2013-12-15 14:05:06.789\"",
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"null\"\t\"12\"\t\"2014-06-10 21:48:32.712\"",
       "\"ed@me.co.uk\"\t\"1992-09-12\"\t\"Jo\"\t\"98\"\t\"2015-01-28 07:32:16.329\""
-    ).flatMap(Recipients.valuesFromTsv)
-    val resultJson = Recipients.makeValidJson(keys, valuess)
+    ).flatMap(RecipientsResponder.valuesFromTsv)
+    val resultJson = RecipientsResponder.makeValidJson(keys, valuess)
     val expected = """[{"email":"bob@foo.com","birthday":330393600,"middle_name":"Al","favorite_number":13,"when_promoted":1387116306},{"email":"karl@bar.de","birthday":173491200,"middle_name":"null","favorite_number":12,"when_promoted":1402436912},{"email":"ed@me.co.uk","birthday":716256000,"middle_name":"Jo","favorite_number":98,"when_promoted":1422430336}]"""
     val expectedJson = Json.parse(expected)
 
@@ -96,8 +96,8 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       "\"11111111111\"\t\"1980-06-21\"\t\"Al\"\t\"13\"\t\"2013-12-15 14:05:06.789\"",
       "\"karl@bar.de\"\t\"1975-07-02\"\t\"\"\t\"12\"\t\"2014-06-10 21:48:32.712\"",
       "\"ed@me.co.uk\"\t\"1992-09-12\"\t\"Jo\"\t\"98\"\t\"2015-01-28 07:32:16.329\""
-    ).flatMap(Recipients.valuesFromTsv)
-    val resultJson = Recipients.makeValidJson(keys, valuess)
+    ).flatMap(RecipientsResponder.valuesFromTsv)
+    val resultJson = RecipientsResponder.makeValidJson(keys, valuess)
     val expected = """[{"email":11111111111,"birthday":330393600,"middle_name":"Al","favorite_number":13,"when_promoted":1387116306},{"email":"karl@bar.de","birthday":173491200,"middle_name":null,"favorite_number":12,"when_promoted":1402436912},{"email":"ed@me.co.uk","birthday":716256000,"middle_name":"Jo","favorite_number":98,"when_promoted":1422430336}]"""
     val expectedJson = Json.parse(expected)
 
@@ -108,21 +108,21 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
     val s = "qwerty"
     val expected = s
 
-    assert(Recipients.correctTimestamps(s) === expected)
+    assert(RecipientsResponder.correctTimestamps(s) === expected)
   }
 
   test("correctTimestamp short timestamp") {
     val s = "1980-06-21"
     val expected = "330393600"
 
-    assert(Recipients.correctTimestamps(s) === expected)
+    assert(RecipientsResponder.correctTimestamps(s) === expected)
   }
 
   test("correctTimestamp full timestamp") {
     val s = "2013-12-15 14:05:06.789"
     val expected = "1387116306"
 
-    assert(Recipients.correctTimestamps(s) === expected)
+    assert(RecipientsResponder.correctTimestamps(s) === expected)
   }
 
   test("handleErrors") {
@@ -145,7 +145,7 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
     }))
 
     val sendgrid = new Sendgrid(sendgridToken.get, logger)
-    val recipients = system.actorOf(Recipients(logger, sendgrid))
+    val recipients = system.actorOf(RecipientsResponder(logger, sendgrid))
 
     // send a message, get a Future notification that it was processed
     val f = recipients ? FileAppeared(filePath, new ByteArrayInputStream(data.getBytes("UTF-8")))
@@ -167,13 +167,13 @@ class RecipientsTest extends FunSuite with BeforeAndAfter {
       override def postRecipients(json: JsValue): Future[WSResponse] = {
         json.asOpt[JsArray]
             .foreach { array =>
-              assert(array.value.length <= Recipients.LINE_LIMIT, "too many lines in a single chunk")
+              assert(array.value.length <= RecipientsResponder.LINE_LIMIT, "too many lines in a single chunk")
             }
 
         Future.failed(new Exception)
       }
     }
-    val recipients = system.actorOf(Recipients(logger, mockedSendgrid))
+    val recipients = system.actorOf(RecipientsResponder(logger, mockedSendgrid))
 
     // preparing is done, start timing
     val time = System.currentTimeMillis()

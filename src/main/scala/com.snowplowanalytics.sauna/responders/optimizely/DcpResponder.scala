@@ -50,8 +50,14 @@ import utils._
  * @param optimizelyImportRegion What region uses Optimizely S3 bucket.
  * @param logger A logger actor.
  */
-class DCPDatasource(optimizely: Optimizely, saunaRoot: String, optimizelyImportRegion: String, logger: ActorRef) extends Responder {
-  import DCPDatasource._
+class DcpResponder(
+    optimizely: Optimizely,
+    saunaRoot: String,
+    optimizelyImportRegion: String,
+    logger: ActorRef)
+  extends Responder {
+
+  import DcpResponder._
 
   val pathPattern =
     """.*com\.optimizely\.dcp/
@@ -177,12 +183,12 @@ class DCPDatasource(optimizely: Optimizely, saunaRoot: String, optimizelyImportR
   }
 }
 
-object DCPDatasource {
+object DcpResponder {
   val dateFormat = StaticDateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").withZoneUTC()
   val dateRegexp = "^(\\d{1,4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d{1,3})$".r
 
   /**
-   * Constructs a Props for DCPDatasource actor.
+   * Constructs a Props for DcpResponder actor.
    *
    * @param optimizely Instance of Optimizely.
    * @param saunaRoot A place for 'tmp' directory.
@@ -191,5 +197,5 @@ object DCPDatasource {
    * @return Props for new actor.
    */
   def apply(optimizely: Optimizely, saunaRoot: String, optimizelyImportRegion: String, logger: ActorRef): Props =
-    Props(new DCPDatasource(optimizely, saunaRoot, optimizelyImportRegion, logger))
+    Props(new DcpResponder(optimizely, saunaRoot, optimizelyImportRegion, logger))
 }

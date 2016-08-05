@@ -29,11 +29,11 @@ import com.fasterxml.jackson.core.JsonParseException
 
 // sauna
 import loggers.Logger.Notification
-import responders.optimizely.TargetingList
+import responders.optimizely.TargetingListResponder
 import utils._
 
 /**
- * Encapsulates any action with Optimizely.
+ * Optimizely API wrapper. Encapsulates all communications with Optimizely
  *
  * @param token Optimizely token.
  * @param logger A logger actor.
@@ -46,12 +46,12 @@ class Optimizely(token: String, logger: ActorRef) {
    *
    * @param tlData Data to be uploaded.
    */
-  def postTargetingLists(tlData: Seq[TargetingList.Data]): Future[WSResponse] = {
+  def postTargetingLists(tlData: Seq[TargetingListResponder.Data]): Future[WSResponse] = {
     val projectId = tlData.head.projectId // all tls have one projectId
 
     wsClient.url(urlPrefix + s"projects/$projectId/targeting_lists/")
-            .withHeaders("Token" -> token, "Content-Type" -> "application/json")
-            .post(TargetingList.merge(tlData))
+      .withHeaders("Token" -> token, "Content-Type" -> "application/json")
+      .post(TargetingListResponder.merge(tlData))
   }
 
   /**
@@ -62,22 +62,22 @@ class Optimizely(token: String, logger: ActorRef) {
    */
   def getOptimizelyS3Credentials(dcpDatasourceId: String): Future[Option[(String, String)]] = {
     wsClient.url(urlPrefix + s"dcp_datasources/$dcpDatasourceId")
-            .withHeaders("Token" -> token)
-            .get()
-            .map { case response =>
-              try { // response.body is valid json
-                val json = Json.parse(response.body)
+      .withHeaders("Token" -> token)
+      .get()
+      .map { response =>
+        try { // response.body is valid json
+          val json = Json.parse(response.body)
 
-                for (
-                  accessKey <- (json \ "aws_access_key").asOpt[String];
-                  secretKey <- (json \ "aws_secret_key").asOpt[String]
-                ) yield (accessKey, secretKey)
+          for (
+            accessKey <- (json \ "aws_access_key").asOpt[String];
+            secretKey <- (json \ "aws_secret_key").asOpt[String]
+          ) yield (accessKey, secretKey)
 
-              } catch { case e: JsonParseException =>
-                logger ! Notification(s"Problems while connecting to Optimizely API. See [${response.body}].")
-                None
-              }
-            }
+        } catch { case e: JsonParseException =>
+          logger ! Notification(s"Problems while connecting to Optimizely API. See [${response.body}].")
+          None
+        }
+      }
   }
 
   /**
@@ -88,8 +88,8 @@ class Optimizely(token: String, logger: ActorRef) {
    */
   def getTargetingList(tlListId: String): Future[WSResponse] =
     wsClient.url(urlPrefix + s"targeting_lists/$tlListId")
-            .withHeaders("Token" -> token)
-            .get
+      .withHeaders("Token" -> token)
+      .get
 
   /**
    * Deletes an information about some targeting list.
@@ -99,8 +99,8 @@ class Optimizely(token: String, logger: ActorRef) {
    */
   def deleteTargetingList(tlListId: String): Future[WSResponse] =
     wsClient.url(urlPrefix + s"targeting_lists/$tlListId")
-            .withHeaders("Token" -> token)
-            .delete
+      .withHeaders("Token" -> token)
+      .delete
 
   /**
    * Deletes an information about some DCP Service.
@@ -110,8 +110,8 @@ class Optimizely(token: String, logger: ActorRef) {
    */
   def deleteDcpService(datasourceId: String): Future[WSResponse] =
     wsClient.url(urlPrefix + s"dcp_services/$datasourceId")
-            .withHeaders("Token" -> token)
-            .delete
+      .withHeaders("Token" -> token)
+      .delete
 }
 
 object Optimizely {
