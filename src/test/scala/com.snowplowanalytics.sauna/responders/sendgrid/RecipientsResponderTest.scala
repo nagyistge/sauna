@@ -145,7 +145,7 @@ class RecipientsResponderTest extends FunSuite with BeforeAndAfter {
     }))
 
     val sendgrid = new Sendgrid(sendgridToken.get, logger)
-    val recipients = system.actorOf(RecipientsResponder(logger, sendgrid))
+    val recipients = system.actorOf(RecipientsResponder.props(logger, sendgrid))
 
     // send a message, get a Future notification that it was processed
     val f = recipients ? FileAppeared(filePath, new ByteArrayInputStream(data.getBytes("UTF-8")))
@@ -173,7 +173,7 @@ class RecipientsResponderTest extends FunSuite with BeforeAndAfter {
         Future.failed(new Exception)
       }
     }
-    val recipients = system.actorOf(RecipientsResponder(logger, mockedSendgrid))
+    val recipients = system.actorOf(RecipientsResponder.props(logger, mockedSendgrid))
 
     // preparing is done, start timing
     val time = System.currentTimeMillis()

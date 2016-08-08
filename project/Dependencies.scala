@@ -20,7 +20,7 @@ object Dependencies {
     val seratch = "0.5.+"
     val nscalaTime = "2.12.0"
     val scopt = "3.5.0"
-    val avro4s = "1.4.3"
+    val avro4s = "1.5.4"
     val play = "2.4.8"
     val akka = "2.4.8"
     val scalaTest = "2.2.4"

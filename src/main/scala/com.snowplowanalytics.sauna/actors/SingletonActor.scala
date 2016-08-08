@@ -13,32 +13,36 @@
 package com.snowplowanalytics.sauna
 package actors
 
+// akka
+import akka.actor.Props
+
 // awscala
 import awscala._
 import awscala.s3.S3
 import awscala.sqs.SQS
 
 // sauna
-import config._
 import observers._
 
 /**
- * This actor supposed to run on exactly one node.
+ * This actor supposed to run on exactly one node
  */
-class SingletonActor(respondersConfig: RespondersConfig,
-                     observersConfig: ObserversConfig,
-                     loggersConfig: LoggersConfig) extends CommonActor(respondersConfig, observersConfig, loggersConfig) {
+class SingletonActor(
+    parameters: AmazonS3ConfigParameters,
+    saunaOptions: SaunaOptions)
+  extends CommonActor(saunaOptions) {
+
   // aws configuration
-  implicit val region = Region(observersConfig.awsRegion)
-  implicit val credentials = new Credentials(observersConfig.awsAccessKeyId, observersConfig.awsSecretAccessKey)
+  implicit val region = Region(parameters.awsRegion)
+  implicit val credentials = new Credentials(parameters.awsAccessKeyId, parameters.awsAccessKeyId)
 
   // S3
   val s3 = S3(credentials)
 
   // SQS
   val sqs = SQS(credentials)
-  val queue = sqs.queue(observersConfig.sqsName)
-                 .getOrElse(throw new Exception("No queue with that name found"))
+  val queue = sqs.queue(parameters.sqsQueueName)
+                 .getOrElse(throw new RuntimeException(s"No queue [${parameters.sqsQueueName}] found"))
 
   // observers
   val s3Observer = new S3Observer(s3, sqs, queue, responderActors, logger)(self)
@@ -47,4 +51,9 @@ class SingletonActor(respondersConfig: RespondersConfig,
   override def postStop(): Unit = {
     s3Observer.interrupt()
   }
+}
+
+object SingletonActor {
+  def props(parameters: AmazonS3ConfigParameters, saunaOptions: SaunaOptions) =
+    Props(new SingletonActor(parameters, saunaOptions))
 }

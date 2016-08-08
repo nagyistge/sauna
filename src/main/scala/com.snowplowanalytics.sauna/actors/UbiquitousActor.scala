@@ -13,20 +13,29 @@
 package com.snowplowanalytics.sauna
 package actors
 
+// akka
+import akka.actor.Props
+
 // sauna
-import config._
 import observers._
 
 /**
  * This actor supposed to run on all nodes.
  */
-class UbiquitousActor(respondersConfig: RespondersConfig,
-                      observersConfig: ObserversConfig,
-                      loggersConfig: LoggersConfig) extends CommonActor(respondersConfig, observersConfig, loggersConfig) {
-  val localObserver = new LocalObserver(observersConfig.saunaRoot, responderActors, logger)(self)
+class UbiquitousActor(
+    parameters: LocalFilesystemConfigParameters,
+    saunaOptions: SaunaOptions)
+  extends CommonActor(saunaOptions) {
+
+  val localObserver = new LocalObserver(parameters.saunaRoot, responderActors, logger)(self)
   localObserver.start()
 
   override def postStop(): Unit = {
     localObserver.interrupt()
   }
+}
+
+object UbiquitousActor {
+  def props(parameters: LocalFilesystemConfigParameters, saunaOptions: SaunaOptions) =
+    Props(new UbiquitousActor(parameters, saunaOptions))
 }

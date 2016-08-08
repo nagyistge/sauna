@@ -14,26 +14,23 @@ package com.snowplowanalytics.sauna
 package loggers
 
 // sauna
-import config._
 import loggers.Logger._
 import utils._
 
-abstract class HipchatLogger(loggersConfig: LoggersConfig) extends Logger {
+abstract class HipchatLogger(parameters: HipchatConfigParameters) extends Logger {
   import HipchatLogger._
 
   /**
    * Makes notification to some HipChat room.
    */
-  override def log(message: Notification): Unit = {
+  def log(message: Notification): Unit = {
     import message._
 
-    val roomId = loggersConfig.hipchatRoomId
-    val token = loggersConfig.hipchatToken
     val content = s"""{"color":"green","message":"$text","notify":false,"message_format":"text"}"""
 
-    val _ = wsClient.url(urlPrefix + s"room/$roomId/notification")
-                    .withHeaders("Authorization" -> s"Bearer $token", "Content-Type" -> "application/json")
-                    .post(content)
+    val _ = wsClient.url(urlPrefix + s"room/${parameters.roomId}/notification")
+      .withHeaders("Authorization" -> s"Bearer ${parameters.token}", "Content-Type" -> "application/json")
+      .post(content)
   }
 }
 

@@ -35,6 +35,7 @@ object Logger {
    *
    * @param text Text of notification.
    */
+  // TODO: add 'source'
   case class Notification(text: String)
 
   /**

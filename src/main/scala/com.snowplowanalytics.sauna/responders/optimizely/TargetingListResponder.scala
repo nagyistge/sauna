@@ -131,7 +131,7 @@ object TargetingListResponder {
    * @param logger Actor with underlying Logger.
    * @return Props for new actor.
    */
-  def apply(optimizely: Optimizely, logger: ActorRef): Props =
+  def props(optimizely: Optimizely, logger: ActorRef): Props =
     Props(new TargetingListResponder(optimizely, logger))
 
   /**
@@ -159,7 +159,7 @@ object TargetingListResponder {
   }
 
   private implicit class StringOps(val s: String) {
-    def enqoute: String = s"\"$s\""
+    def enqoute: String = '"' + s + '"'
   }
 
   /**

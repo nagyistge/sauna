@@ -22,23 +22,22 @@ import awscala._
 import awscala.dynamodbv2.DynamoDB
 
 // sauna
-import com.snowplowanalytics.sauna.config._
-import loggers.Logger._
+import Logger._
 
-abstract class DynamodbLogger(observersConfig: ObserversConfig,loggersConfig: LoggersConfig) extends Logger {
-  // aws credentials
-  implicit val region = Region(observersConfig.awsRegion)
-  val credentials = new Credentials(observersConfig.awsAccessKeyId, observersConfig.awsSecretAccessKey)
+abstract class DynamodbLogger(parameters: AmazonDynamodbConfigParameters) extends Logger {
+  // AWS credentials
+  implicit val region = Region(parameters.awsRegion)
+  val credentials = new Credentials(parameters.awsAccessKeyId, parameters.awsSecretAccessKey)
 
   // DynamoDB
   val ddb = DynamoDB(credentials)
-  val ddbTable = ddb.table(loggersConfig.dynamodbTableName)
-                    .getOrElse(throw new Exception("No table with that name found"))
+  val ddbTable = ddb.table(parameters.dynamodbTableName)
+                    .getOrElse(throw new RuntimeException(s"No table [${parameters.dynamodbTableName}] was found"))
 
   /**
    * Writes the message to DynamoDb table.
    */
-  override def log(message: Manifestation): Unit = {
+  def log(message: Manifestation): Unit = {
     import message._
 
     val _ = Future { // make non-blocking call

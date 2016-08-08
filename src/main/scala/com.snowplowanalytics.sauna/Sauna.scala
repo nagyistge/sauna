@@ -13,6 +13,7 @@
 package com.snowplowanalytics.sauna
 
 // typesafe-config
+import com.snowplowanalytics.sauna.observers.{AmazonS3Config, LocalFilesystemConfig}
 import com.typesafe.config.ConfigFactory
 
 // akka
@@ -22,7 +23,6 @@ import akka.cluster.singleton._
 
 // sauna
 import actors._
-import config._
 
 /**
  * Main class, starts the Sauna program.
@@ -40,33 +40,34 @@ object Sauna extends App {
    * @param options options parsed from command line
    */
   def run(options: SaunaOptions): Unit = {
-    val respondersConfig = RespondersConfig(options.respondersLocation.getAbsolutePath)
-    val observersConfig = ObserversConfig(options.observersLocation.getAbsolutePath)
-    val loggersConfig = LoggersConfig(options.observersLocation.getAbsolutePath)
 
-    val config = ConfigFactory
-      .parseString(s"akka.remote.netty.tcp.port=${options.port}")
-      .withFallback(ConfigFactory.load())
+     val config = ConfigFactory
+       .parseString(s"akka.remote.netty.tcp.port=${options.port}")
+       .withFallback(ConfigFactory.load())
 
-    val system = ActorSystem("sauna", config)
-    // TODO: use cluster
-    val _ = Cluster(system)
+     val system = ActorSystem("sauna", config)
+     // TODO: use cluster
+     val _ = Cluster(system)
 
-    if (observersConfig.localObserverEnabled) {
-      // this actor runs on all nodes
-      val _ = system.actorOf(Props(new UbiquitousActor(respondersConfig, observersConfig, loggersConfig)), "UbiquitousActor")
+    options.local match {
+      case Some(LocalFilesystemConfig(true, _, _, params)) =>
+        // this actor runs on all nodes
+        val _ = system.actorOf(UbiquitousActor.props(params, options), "UbiquitousActor")
+      case _ => ()
     }
 
-    if (observersConfig.s3ObserverEnabled) {
-      // this actor runs on one and only one node
-      val _ = system.actorOf(
-        ClusterSingletonManager.props(
-          singletonProps = Props(new SingletonActor(respondersConfig, observersConfig, loggersConfig)),
-          terminationMessage = PoisonPill,
-          settings = ClusterSingletonManagerSettings(system)
-        ),
-        name = "SingletonActor"
-      )
+    options.s3 match {
+      case Some(AmazonS3Config(true, _, _, params)) =>
+        // this actor runs on one and only one node
+        val _ = system.actorOf(
+          ClusterSingletonManager.props(
+            singletonProps = SingletonActor.props(params, options),
+            terminationMessage = PoisonPill,
+            settings = ClusterSingletonManagerSettings(system)
+          ),
+          name = "SingletonActor"
+        )
+      case _ => ()
     }
   }
 }

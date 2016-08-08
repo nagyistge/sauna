@@ -15,57 +15,64 @@ package actors
 
 // akka
 import akka.actor._
-import com.snowplowanalytics.sauna.loggers.Logger.Manifestation
 
 // sauna
 import apis._
-import config._
 import loggers._
+import loggers.Logger.Manifestation
 import responders.optimizely._
 import responders.sendgrid._
+import responders._
 
 /**
  * Implementations of this actor run on cluster nodes. They launch different observers during lifetime.
  * This class collects common stuff (apis, configs, loggers).
  */
-abstract class CommonActor(respondersConfig: RespondersConfig,
-                           observersConfig: ObserversConfig,
-                           loggersConfig: LoggersConfig) extends Actor {
-  // logger
-  val logger = (loggersConfig.hipchatEnabled, loggersConfig.dynamodbEnabled) match {
-    case (true, true) =>
-      context.actorOf(Props(new HipchatLogger(loggersConfig) {
-        val dynamodbLogger = context.actorOf(Props(new DynamodbLogger(observersConfig, loggersConfig) with StdoutLogger))
+abstract class CommonActor(saunaOptions: SaunaOptions) extends Actor {
+
+  val logger = (saunaOptions.hipchat, saunaOptions.amazonDynamodb) match {
+    case (Some(HipchatConfig(true, _, _, hipcharParams)), Some(AmazonDynamodbConfig(true, _, _, dynamodbParams))) =>
+
+      val dynamodbLogger = context.actorOf(Props(new DynamodbLogger(dynamodbParams) with StdoutLogger))
+
+      context.actorOf(Props(new HipchatLogger(hipcharParams) {
         override def log(message: Manifestation): Unit = dynamodbLogger ! message
       }))
 
-    case (true, false) =>
-      context.actorOf(Props(new HipchatLogger(loggersConfig) with StdoutLogger))
+    case (Some(HipchatConfig(true, _, _, params)), _) =>
+      context.actorOf(Props(new HipchatLogger(params) with StdoutLogger))
 
-    case (false, true) =>
-      context.actorOf(Props(new DynamodbLogger(observersConfig, loggersConfig) with StdoutLogger))
+    case (_, Some(AmazonDynamodbConfig(true, _, _, params))) =>
+      context.actorOf(Props(new DynamodbLogger(params) with StdoutLogger))
 
     case _ =>
       context.actorOf(Props(new StdoutLogger {}))
   }
 
-  // apis
-  // note that even if api was disabled in config, no error will happen, because
-  // default sentinel value "" is applied as token, and first real use happens inside responders,
-  // and it wont happen if appropriate responder was not activated
-  val optimizely = new Optimizely(respondersConfig.optimizelyToken, logger)
-  val sendgrid = new Sendgrid(respondersConfig.sendgridToken, logger)
-
   // responders
   var responderActors = List.empty[ActorRef]
-  if (respondersConfig.targetingListEnabled) {
-    responderActors +:= context.actorOf(TargetingListResponder(optimizely, logger), "TargetingListResponder")
+  
+  saunaOptions.optimizely match {
+    case Some(OptimizelyConfig(true, _, _, params)) =>
+      val optimizelyApiWrapper = new Optimizely(params.token, logger)
+      
+      if (params.targetingListEnabled)
+        responderActors +:= context.actorOf(TargetingListResponder.props(optimizelyApiWrapper, logger), "TargetingListResponder")
+
+      if (params.dynamicClientProfilesEnabled)
+        responderActors +:= context.actorOf(DcpResponder.props(optimizelyApiWrapper, params.awsRegion, logger), "DcpResponder")
+
+    case _ => ()
   }
-  if (respondersConfig.dynamicClientProfilesEnabled) {
-    responderActors +:= context.actorOf(DcpResponder(optimizely, observersConfig.saunaRoot, respondersConfig.optimizelyImportRegion, logger), "DcpResponder")
-  }
-  if (respondersConfig.recipientsEnabled) {
-    responderActors +:= context.actorOf(RecipientsResponder(logger, sendgrid), "RecipientsResponder")
+
+  saunaOptions.sendgrid match {
+    case Some(SendgridConfig(true, _, _, params)) =>
+      val sendgridApiWrapper = new Sendgrid(params.token, logger)
+
+      if (params.recipientsEnabled)
+        responderActors +:= context.actorOf(RecipientsResponder.props(logger, sendgridApiWrapper), "RecipientsResponder")
+
+    case _ => ()
   }
 
   def receive: Receive = {

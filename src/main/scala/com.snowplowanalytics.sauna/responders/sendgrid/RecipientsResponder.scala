@@ -188,7 +188,7 @@ object RecipientsResponder {
    * @param logger Actor with underlying Logger.
    * @return Props for new actor.
    */
-  def apply(logger: ActorRef, sendgrid: Sendgrid): Props =
+  def props(logger: ActorRef, sendgrid: Sendgrid): Props =
     Props(new RecipientsResponder(sendgrid, logger))
 
   /**
